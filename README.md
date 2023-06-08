@@ -39,3 +39,8 @@ npm run test:unit
 ```sh
 npm run lint
 ```
+
+### Local setup
+
+create 3 .env files (.env.[test|production|development].local)
+VITE_APP_API_URL=http://localhost:3000
