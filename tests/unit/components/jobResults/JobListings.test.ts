@@ -1,0 +1,117 @@
+import type { Mock } from 'vitest';
+import { render, screen } from '@testing-library/vue';
+import { RouterLinkStub } from '@vue/test-utils';
+import { createTestingPinia } from '@pinia/testing';
+
+import JobListings from '@/components/jobResults/JobListings/JobListings.vue';
+
+import { useJobsStore } from '@/stores/jobs';
+import { useDegreesStore } from '@/stores/degrees';
+
+import { useRoute } from 'vue-router';
+vi.mock('vue-router');
+
+const useRouteMock = useRoute as Mock;
+
+describe('JobListings', () => {
+  const renderJobListings = () => {
+    const pinia = createTestingPinia();
+    const jobsStore = useJobsStore();
+    // @ts-expect-error
+    jobsStore.FILTERED_JOBS = Array(15).fill({});
+    const degreesStore = useDegreesStore();
+
+    render(JobListings, {
+      global: {
+        stubs: {
+          RouterLink: RouterLinkStub
+        },
+        plugins: [pinia]
+      }
+    });
+
+    return { degreesStore, jobsStore };
+  };
+  it('fetches jobs', () => {
+    useRouteMock.mockReturnValue({ query: {} });
+
+    const { jobsStore } = renderJobListings();
+    expect(jobsStore.FETCH_JOBS).toHaveBeenCalled();
+  });
+
+  it('feteches degrees', () => {
+    useRouteMock.mockReturnValue({ query: {} });
+
+    const { degreesStore } = renderJobListings();
+    expect(degreesStore.FETCH_DEGREES).toHaveBeenCalled();
+  });
+
+  it('displays maximum 10 jobs', async () => {
+    useRouteMock.mockReturnValue({ query: { page: '1' } });
+
+    const { jobsStore } = renderJobListings();
+    // @ts-expect-error
+    jobsStore.FILTERED_JOBS = Array(15).fill({});
+
+    const jobListings = await screen.findAllByRole('listitem');
+    expect(jobListings).toHaveLength(10);
+  });
+
+  describe('when params exclude page number', () => {
+    it('displays page number 1', () => {
+      useRouteMock.mockReturnValue({ query: { page: undefined } });
+
+      renderJobListings();
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+    });
+  });
+
+  describe('when params include page number', () => {
+    it('display page number', () => {
+      useRouteMock.mockReturnValue({ query: { page: '9' } });
+
+      renderJobListings();
+      expect(screen.getByText('Page 9')).toBeInTheDocument();
+    });
+  });
+
+  describe('when user is on first page', () => {
+    it('does not show link to previous page', async () => {
+      useRouteMock.mockReturnValue({ query: { page: '1' } });
+
+      const { jobsStore } = renderJobListings();
+      // @ts-expect-error
+      jobsStore.FILTERED_JOBS = Array(15).fill({});
+
+      await screen.findAllByRole('listitem');
+      expect(screen.queryByRole('link', { name: /previous/i })).not.toBeInTheDocument();
+    });
+
+    it('shows link to next page', async () => {
+      useRouteMock.mockReturnValue({ query: { page: '1' } });
+
+      const { jobsStore } = renderJobListings();
+      // @ts-expect-error
+      jobsStore.FILTERED_JOBS = Array(15).fill({});
+
+      await screen.findAllByRole('listitem');
+      const nextLink = screen.getByText(/next/i, { selector: 'a' });
+      expect(nextLink).toBeInTheDocument();
+    });
+  });
+
+  describe('when user is on first page', () => {
+    it('does not show link to next page', async () => {
+      useRouteMock.mockReturnValue({ query: { page: '2' } });
+
+      const { jobsStore } = renderJobListings();
+      // @ts-expect-error
+      jobsStore.FILTERED_JOBS = Array(15).fill({});
+
+      await screen.findAllByRole('listitem');
+      const nextLink = screen.queryByRole('link', { name: /next/i });
+      screen.debug();
+      expect(nextLink).not.toBeInTheDocument();
+    });
+  });
+});
